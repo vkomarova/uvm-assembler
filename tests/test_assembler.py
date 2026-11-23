@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(TESTS_DIR, "..", "src"))
 import assembler
 
 
-class TestAssembler(unittest.TestCase):
+class TestTranslate(unittest.TestCase):
     """Проверка перевода команд во внутреннее представление."""
 
     def test_load(self):
@@ -40,16 +40,48 @@ class TestAssembler(unittest.TestCase):
         expected = {"A": 6, "B": 124, "C": 423, "D": 97}
         self.assertEqual(assembler.translate_command(command), expected)
 
+
+class TestEncode(unittest.TestCase):
+    """Проверка перевода команд в машинный код."""
+
+    def test_load(self):
+        """Загрузка константы даёт байты из спецификации."""
+        fields = {"A": 14, "B": 106, "C": 723}
+        expected = bytes([0xAE, 0x06, 0x00, 0x00, 0x4C, 0x0B, 0x00])
+        self.assertEqual(assembler.encode_command(fields), expected)
+
+    def test_read(self):
+        """Чтение из памяти даёт байты из спецификации."""
+        fields = {"A": 12, "B": 183, "C": 438, "D": 923}
+        expected = bytes([0x7C, 0x0B, 0x00, 0x00, 0xD8,
+                          0xC6, 0xE6, 0x00, 0x00, 0x00])
+        self.assertEqual(assembler.encode_command(fields), expected)
+
+    def test_write(self):
+        """Запись в память даёт байты из спецификации."""
+        fields = {"A": 11, "B": 694, "C": 172, "D": 732}
+        expected = bytes([0x6B, 0x2B, 0xAC, 0x00, 0x00,
+                          0x00, 0xB7, 0x00, 0x00, 0x00])
+        self.assertEqual(assembler.encode_command(fields), expected)
+
+    def test_neg(self):
+        """Унарный минус даёт байты из спецификации."""
+        fields = {"A": 6, "B": 124, "C": 423, "D": 97}
+        expected = bytes([0xC6, 0x07, 0xA7, 0x01, 0x00,
+                          0x40, 0x18, 0x00, 0x00, 0x00])
+        self.assertEqual(assembler.encode_command(fields), expected)
+
     def test_spec_program(self):
-        """Файл spec_test.json даёт те же поля, что и спецификация."""
+        """Файл spec_test.json даёт все байты из спецификации."""
         path = os.path.join(TESTS_DIR, "spec_test.json")
         program = assembler.translate_program(assembler.read_program(path))
-        lines = [assembler.format_fields(fields) for fields in program]
+        lines = [assembler.format_bytes(code)
+                 for code in assembler.assemble(program)]
         expected = [
-            "A=14, B=106, C=723",
-            "A=12, B=183, C=438, D=923",
-            "A=11, B=694, C=172, D=732",
-            "A=6, B=124, C=423, D=97",
+            "0xAE, 0x06, 0x00, 0x00, 0x4C, 0x0B, 0x00",
+            "0x7C, 0x0B, 0x00, 0x00, 0xD8, 0xC6, 0xE6, 0x00, 0x00, 0x00",
+            "0x6B, 0x2B, 0xAC, 0x00, 0x00, 0x00, 0xB7, 0x00, 0x00, 0x00",
+            "0xC6, 0x07, 0xA7, 0x01, 0x00, 0x40, 0x18, 0x00, 0x00, 0x00",
         ]
         self.assertEqual(lines, expected)
 

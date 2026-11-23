@@ -6,6 +6,9 @@ READ_MEM_CODE = 12
 WRITE_MEM_CODE = 11
 NEG_CODE = 6
 
+LOAD_CONST_SIZE = 7
+LONG_COMMAND_SIZE = 10
+
 
 def translate_command(command):
     """Переводит одну команду JSON в словарь с полями УВМ"""
@@ -48,24 +51,55 @@ def translate_program(commands):
     return result
 
 
+def encode_command(fields):
+    """Переводит одну команду (словарь полей) в байты"""
+    code = fields["A"]
+    if code == LOAD_CONST_CODE:
+        value = code | (fields["B"] << 4) | (fields["C"] << 34)
+        return value.to_bytes(LOAD_CONST_SIZE, "little")
+    if code == READ_MEM_CODE:
+        value = code | (fields["B"] << 4) | (fields["C"] << 34)
+        value = value | (fields["D"] << 46)
+        return value.to_bytes(LONG_COMMAND_SIZE, "little")
+    value = code | (fields["B"] << 4) | (fields["C"] << 16)
+    value = value | (fields["D"] << 46)
+    return value.to_bytes(LONG_COMMAND_SIZE, "little")
+
+
+def assemble(program):
+    """Переводит внутреннее представление в список байтов команд"""
+    result = []
+    for fields in program:
+        result.append(encode_command(fields))
+    return result
+
+
 def read_program(path):
     """Читает файл с программой на языке ассемблера (JSON)"""
     with open(path, "r", encoding="utf-8") as file:
         return json.load(file)
 
 
-def format_fields(fields):
-    """Возвращает строку вида 'A=14, B=106, C=723'"""
+def write_binary(path, codes):
+    """Записывает машинный код в двоичный файл, возвращает размер"""
+    data = b"".join(codes)
+    with open(path, "wb") as file:
+        file.write(data)
+    return len(data)
+
+
+def format_bytes(code):
+    """Возвращает строку вида '0xAE, 0x06, 0x00'"""
     parts = []
-    for name, value in fields.items():
-        parts.append(name + "=" + str(value))
+    for byte in code:
+        parts.append("0x{:02X}".format(byte))
     return ", ".join(parts)
 
 
-def print_program(program):
-    """Выводит на экран внутреннее представление программы"""
-    for fields in program:
-        print(format_fields(fields))
+def print_codes(codes):
+    """Выводит на экран машинный код каждой команды"""
+    for code in codes:
+        print(format_bytes(code))
 
 
 def parse_args():
@@ -83,8 +117,11 @@ def main():
     args = parse_args()
     commands = read_program(args.source)
     program = translate_program(commands)
+    codes = assemble(program)
+    size = write_binary(args.output, codes)
     if args.test:
-        print_program(program)
+        print_codes(codes)
+    print("Размер двоичного файла:", size, "байт")
 
 
 if __name__ == "__main__":
