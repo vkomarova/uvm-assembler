@@ -1,0 +1,6 @@
+[
+    {"command": "load", "address": 106, "value": 723},
+    {"command": "read", "base": 183, "offset": 438, "dest": 923},
+    {"command": "write", "offset": 694, "base": 172, "src": 732},
+    {"command": "neg", "offset": 124, "base": 423, "src": 97}
+]
